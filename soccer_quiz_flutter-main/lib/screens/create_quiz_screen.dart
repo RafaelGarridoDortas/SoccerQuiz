@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
+import '../services/di.dart'; 
 
 class CreateQuizScreen extends StatefulWidget {
   @override
@@ -17,6 +18,9 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
   
   // Índice da resposta correta (0 a 3)
   int _correctAnswerIndex = 0; 
+  
+  // Estado de carregamento para evitar duplo clique
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -35,28 +39,54 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     super.dispose();
   }
 
-  void _saveQuestion() {
+  // --- LÓGICA DE SALVAR NO BACKEND (REQ 04) ---
+  Future<void> _saveQuestion() async {
     if (_formKey.currentState!.validate()) {
-      // Aqui você enviaria para o seu backend/API
-      // Por enquanto, apenas imprimimos no console
+      
+      setState(() => _isSending = true);
+
+      // Monta o JSON conforme o Game Service espera
       final newQuestion = {
         "question": _questionController.text,
         "options": _optionControllers.map((c) => c.text).toList(),
         "correctIndex": _correctAnswerIndex,
       };
 
-      print("Pergunta Salva: $newQuestion");
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pergunta salva com sucesso!"), backgroundColor: Colors.green),
-      );
+      try {
+        // 1. Pega o container de injeção de dependência
+        final container = Provider.of<ServiceContainer>(context, listen: false);
+        
+        // 2. Envia para a rota POST /questions do Game Service
+        await container.apiClient.post('/questions', newQuestion);
+        
+        // 3. Sucesso
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Pergunta salva no Banco de Dados com sucesso!"), 
+            backgroundColor: Colors.green
+          ),
+        );
 
-      // Limpar campos para adicionar outra
-      _questionController.clear();
-      for (var c in _optionControllers) c.clear();
-      setState(() {
-        _correctAnswerIndex = 0;
-      });
+        // 4. Limpar campos para adicionar outra
+        _questionController.clear();
+        for (var c in _optionControllers) c.clear();
+        setState(() {
+          _correctAnswerIndex = 0;
+        });
+
+      } catch (e) {
+        // 5. Erro
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro ao salvar: $e"), 
+            backgroundColor: Colors.red
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
     }
   }
 
@@ -149,14 +179,16 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[700], // Azul para diferenciar ou Verde
+                          backgroundColor: Colors.blue[700], 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: _saveQuestion,
-                        child: Text(
-                          "ADICIONAR PERGUNTA",
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                        onPressed: _isSending ? null : _saveQuestion, // Desabilita se estiver enviando
+                        child: _isSending 
+                          ? CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              "ADICIONAR PERGUNTA",
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
                       ),
                     ),
                   ],
@@ -188,7 +220,7 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[600]),
         filled: true,
-        fillColor: Colors.grey[900], // Fundo levemente cinza
+        fillColor: Colors.grey[900], 
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Colors.cyan, width: 1.5), // Borda Neon
           borderRadius: BorderRadius.circular(8),

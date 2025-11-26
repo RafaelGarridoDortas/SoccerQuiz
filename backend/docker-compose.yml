@@ -18,8 +18,17 @@ services:
       - "3001:3001"
     environment:
       - JWT_SECRET=segredo_da_ufba
+      - DB_PATH=/app/data/users.db 
+    volumes:
+
+      - ./data/auth:/app/data
 
   game-service:
     build: ./game-service
     ports:
       - "3002:3002"
+    environment:
+      - DB_PATH=/app/data/game.db 
+    volumes:
+      
+      - ./data/game:/app/data
