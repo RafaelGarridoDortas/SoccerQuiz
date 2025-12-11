@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soccer_quiz_flutter/screens/create_quiz_screen.dart';
+import 'package:soccer_quiz_flutter/screens/create_team_screen.dart';
 import 'package:soccer_quiz_flutter/screens/ranking_screen.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
@@ -27,7 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // 1. LÓGICA DO BACK-CONNECTED: Pegar os dados do usuário logado
     final auth = Provider.of<AuthProvider>(context);
-    final name = auth.user != null ? (auth.user!['name'] ?? 'Usuário') : 'Usuário';
+    final name =
+        auth.user != null ? (auth.user!['name'] ?? 'Usuário') : 'Usuário';
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -40,20 +42,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Center(
               child: Image.asset(
                 'assets/Logo.png',
-                width: 200, 
+                width: 200,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>
                     Icon(Icons.sports_soccer, size: 100, color: Colors.blue),
               ),
             ),
 
-            // 3. SAUDAÇÃO (Sua parte integrada na UI nova)
+            // 3. SAUDAÇÃO
             Padding(
               padding: const EdgeInsets.only(top: 10.0),
-              child: Text(
-                'Olá, ' + name, 
-                style: TextStyle(color: Colors.white70, fontSize: 18)
-              ),
+              child: Text('Olá, ' + name,
+                  style: TextStyle(color: Colors.white70, fontSize: 18)),
             ),
 
             SizedBox(height: 20),
@@ -104,22 +104,25 @@ class _HomeScreenState extends State<HomeScreen> {
                           MaterialPageRoute(
                               builder: (context) => CreateQuizScreen()));
                     }),
-                    
-                    // Botão Perfil usando a rota correta
                     _buildMenuItem("Meu Perfil", onTap: () {
-                       Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen()));
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => ProfileScreen()));
                     }),
 
                     _buildMenuItem("Ranking", onTap: () {
-                      // Confirme se o nome da classe no seu projeto é RankingScreen ou RankingListScreen
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => RankingListScreen())); 
+                              builder: (context) => RankingListScreen()));
                     }),
-                    
-                    _buildMenuItem("Novo Time", onTap: () {}),
-                    
+
+                    _buildMenuItem("Novo Time", onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => CreateTeamScreen()));
+                    }),
+
                     // 6. BOTÃO SAIR (Sua lógica dentro do design novo)
                     _buildMenuItem("Sair", onTap: () async {
                       await auth.logout();
@@ -142,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget reutilizável para os itens do menu (Design do colega)
+  // Widget reutilizável para os itens do menu
   Widget _buildMenuItem(String text, {required VoidCallback onTap}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15.0),
