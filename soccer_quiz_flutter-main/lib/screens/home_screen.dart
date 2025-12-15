@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soccer_quiz_flutter/screens/create_quiz_screen.dart';
 import 'package:soccer_quiz_flutter/screens/create_team_screen.dart';
+import 'package:soccer_quiz_flutter/screens/invite.dart';
 import 'package:soccer_quiz_flutter/screens/ranking_screen.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
@@ -122,8 +123,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           MaterialPageRoute(
                               builder: (context) => CreateTeamScreen()));
                     }),
-
-                    // 6. BOTÃO SAIR (Sua lógica dentro do design novo)
+                    _buildMenuItem("Convidar amigos", onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => InviteUsersScreen()));
+                    }),
+                    // 6. BOTÃO SAIR
                     _buildMenuItem("Sair", onTap: () async {
                       await auth.logout();
                       Navigator.pushAndRemoveUntil(
