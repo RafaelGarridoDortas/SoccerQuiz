@@ -115,8 +115,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // --- UI (INTERFACE) ---
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -291,13 +289,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return null;
       },
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.cyan),
+        prefixIcon: Icon(icon, color: Colors.lightGreen),
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[700]),
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.cyan, width: 1.5),
+          borderSide: BorderSide(color: Colors.lightGreen, width: 1.5),
           borderRadius: BorderRadius.circular(10),
         ),
         focusedBorder: OutlineInputBorder(

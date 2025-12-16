@@ -2,57 +2,72 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class ApiException implements Exception {
-  final String message;
-  ApiException(this.message);
-  String toString() => 'ApiException: $message';
-}
+// REMOVIDO: import '../../../test/auth_service_test.dart'; (Nunca importe testes aqui)
 
 class ApiClient {
   final String baseUrl;
   final FlutterSecureStorage secureStorage;
-  final http.Client client;
+  final http.Client client; // Adicionado: Armazena o cliente HTTP
 
-  ApiClient({required this.baseUrl, required this.secureStorage, http.Client? client})
-      : client = client ?? http.Client();
+  ApiClient({
+    required this.baseUrl,
+    required this.secureStorage,
+    required this.client, // Alterado: De MockClient para http.Client genérico
+  });
 
-  Future<String?> _getToken() async {
-    return await secureStorage.read(key: 'auth_token');
-  }
-
-  Future<http.Response> get(String path) async {
-    final token = await _getToken();
-    final headers = <String, String>{ 'Content-Type': 'application/json' };
-
-    if (token != null) headers['Authorization'] = 'Bearer $token';
-
-    final uri = Uri.parse('$baseUrl$path');
-    
-    final res = await client.get(uri, headers: headers);
-    if (res.statusCode >= 200 && res.statusCode < 300) return res;
-
-    throw ApiException('GET $path failed with status ${res.statusCode}: ${res.body}');
-  }
-
-  Future<http.Response> post(String path, dynamic body) async {
-    final token = await _getToken();
-    final headers = <String, String>{ 'Content-Type': 'application/json' };
-
-    if (token != null) headers['Authorization'] = 'Bearer $token';
-
-    final uri = Uri.parse('$baseUrl$path');
-    
-    final res = await client.post(uri, headers: headers, body: jsonEncode(body));
-    if (res.statusCode >= 200 && res.statusCode < 300) return res;
-
-    throw ApiException('POST $path failed with status ${res.statusCode}: ${res.body}');
-  }
-
+  // -------------------------
+  // TOKEN
+  // -------------------------
   Future<void> saveToken(String token) async {
     await secureStorage.write(key: 'auth_token', value: token);
   }
 
   Future<void> clearToken() async {
     await secureStorage.delete(key: 'auth_token');
+  }
+
+  Future<String?> getToken() async {
+    return secureStorage.read(key: 'auth_token');
+  }
+
+  // -------------------------
+  // HEADERS
+  // -------------------------
+  Future<Map<String, String>> _headers({bool authenticated = false}) async {
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (authenticated) {
+      final token = await getToken();
+      if (token != null) {
+        headers['x-access-token'] = token;
+      }
+    }
+
+    return headers;
+  }
+
+  // -------------------------
+  // POST
+  // -------------------------
+  Future<http.Response> post(String path, Map<String, dynamic> body) async {
+    // CORREÇÃO: Usar 'client.post' (instância) em vez de 'http.post' (estático)
+    return client.post( 
+      Uri.parse('$baseUrl$path'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+  }
+
+  // -------------------------
+  // GET (PROTEGIDO)
+  // -------------------------
+  Future<http.Response> get(String path) async {
+    // CORREÇÃO: Usar 'client.get' (instância) em vez de 'http.get' (estático)
+    return client.get(
+      Uri.parse('$baseUrl$path'),
+      headers: await _headers(authenticated: true),
+    );
   }
 }

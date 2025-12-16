@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http; // Import necessário
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../data/api/api_client.dart';
 import '../data/repositories/auth_repository.dart';
@@ -17,13 +18,17 @@ class ServiceContainer {
 }
 
 Future<ServiceContainer> buildServiceContainer() async {
-  final secureStorage = FlutterSecureStorage();
+  final secureStorage = const FlutterSecureStorage();
 
-  // URL Mágica para o Emulador Android acessar o localhost da máquina
-  // Se for rodar na Web ou iOS, use 'http://localhost:3000'
-  const baseUrl = 'http://10.0.2.2:3000'; 
+  // Configurado para WEB (localhost funciona nativamente no browser)
+  const baseUrl = 'http://localhost:3000'; 
 
-  final apiClient = ApiClient(baseUrl: baseUrl, secureStorage: secureStorage);
+  final apiClient = ApiClient(
+    baseUrl: baseUrl, 
+    secureStorage: secureStorage, 
+    client: http.Client() // A correção do null permanece aqui
+  );
+
   final authRepository = AuthRepository(apiClient: apiClient);
   final authProvider = AuthProvider(authRepository: authRepository);
 

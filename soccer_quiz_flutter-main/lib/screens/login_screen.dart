@@ -60,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     TextFormField(
+                      style: TextStyle(color: Colors.white),
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       cursorColor: Colors.lightGreen, // Cursor verde
@@ -83,6 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 16),
                     TextFormField(
+                      style: TextStyle(color: Colors.white),
                       controller: _pass,
                       cursorColor: Colors.lightGreen, // Cursor verde
                       decoration: InputDecoration(
