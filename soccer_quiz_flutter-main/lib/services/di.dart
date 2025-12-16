@@ -19,7 +19,9 @@ class ServiceContainer {
 Future<ServiceContainer> buildServiceContainer() async {
   final secureStorage = FlutterSecureStorage();
 
-  const baseUrl = 'http://10.0.2.2:3000'; // Pro Docker do Back
+  // URL Mágica para o Emulador Android acessar o localhost da máquina
+  // Se for rodar na Web ou iOS, use 'http://localhost:3000'
+  const baseUrl = 'http://10.0.2.2:3000'; 
 
   final apiClient = ApiClient(baseUrl: baseUrl, secureStorage: secureStorage);
   final authRepository = AuthRepository(apiClient: apiClient);

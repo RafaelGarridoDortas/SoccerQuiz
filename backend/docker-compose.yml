@@ -1,8 +1,13 @@
 version: '3.8'
 
 services:
+  # ------------------------------------------------------------
+  # API GATEWAY (Porta 3000)
+  # O Flutter se conecta AQUI.
+  # ------------------------------------------------------------
   gateway:
     build: ./gateway
+    container_name: soccer_gateway
     ports:
       - "3000:3000"
     depends_on:
@@ -11,24 +16,44 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://auth-service:3001
       - GAME_SERVICE_URL=http://game-service:3002
+    networks:
+      - soccer-net
 
+  # ------------------------------------------------------------
+  # AUTH SERVICE (Porta 3001)
+  # Gerencia Usuários e Login
+  # ------------------------------------------------------------
   auth-service:
     build: ./auth-service
+    container_name: soccer_auth
     ports:
       - "3001:3001"
     environment:
-      - JWT_SECRET=segredo_da_ufba
-      - DB_PATH=/app/data/users.db 
+      - JWT_SECRET=segredo_super_seguro_da_ufba
+      - DB_PATH=/app/data/users.db
     volumes:
-
+      # Persistência: O banco de dados fica salvo na sua máquina host
       - ./data/auth:/app/data
+    networks:
+      - soccer-net
 
+  # ------------------------------------------------------------
+  # GAME SERVICE (Porta 3002)
+  # Gerencia Quiz, Times, Ranking, Finanças
+  # ------------------------------------------------------------
   game-service:
     build: ./game-service
+    container_name: soccer_game
     ports:
       - "3002:3002"
     environment:
-      - DB_PATH=/app/data/game.db 
+      - DB_PATH=/app/data/game.db
     volumes:
-      
+      # Persistência: O banco de dados fica salvo na sua máquina host
       - ./data/game:/app/data
+    networks:
+      - soccer-net
+
+networks:
+  soccer-net:
+    driver: bridge

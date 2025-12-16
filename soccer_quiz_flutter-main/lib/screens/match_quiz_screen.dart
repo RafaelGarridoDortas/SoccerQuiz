@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <--- Importante
 import 'package:soccer_quiz_flutter/screens/quiz_screen.dart';
 import 'package:soccer_quiz_flutter/screens/ranking_screen.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
+import '../services/di.dart'; // <--- Importante
+import '../providers/auth_provider.dart'; // <--- Importante
 
 class MatchQuizScreen extends StatefulWidget {
   @override
@@ -89,10 +92,31 @@ class _MatchQuizScreenState extends State<MatchQuizScreen> {
     }
   }
 
-  void _finishQuiz() {
+  Future<void> _finishQuiz() async {
     _timer?.cancel();
-    // Navegar para a tela de Ranking/Resultado
-    // Por enquanto, mostraremos um alerta ou navegar para uma tela placeholder
+    
+    // Obtém dados do usuário logado via Provider
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userId = auth.user != null ? auth.user!['id'] : 0;
+    final userName = auth.user != null ? auth.user!['name'] : 'Anônimo';
+
+    try {
+      final container = Provider.of<ServiceContainer>(context, listen: false);
+      
+      // Envia resultado para o Backend
+      await container.apiClient.post('/results', {
+        "userId": userId,
+        "userName": userName,
+        "score": _score,
+        "timeTaken": 120 - _timeLeft // Calcula o tempo usado
+      });
+
+    } catch (e) {
+      print("Erro de conexão ao salvar resultado: $e");
+    }
+
+    if (!mounted) return;
+    // Vai para a tela de resultado
     Navigator.pushReplacement(
       context, 
       MaterialPageRoute(builder: (context) => ResultScreenPlaceholder(score: _score, total: _questions.length))

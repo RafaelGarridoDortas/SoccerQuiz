@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
+import '../services/di.dart'; // <--- Importante: Adicionado para encontrar ServiceContainer
 
 class CreateTeamScreen extends StatefulWidget {
   @override
@@ -14,8 +15,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   // Controllers para os campos
   final _nameController = TextEditingController();
   final _leagueController = TextEditingController();
-  final _logoUrlController =
-      TextEditingController(); // Simulação de URL de imagem
+  final _logoUrlController = TextEditingController(); // Simulação de URL de imagem
 
   @override
   void dispose() {
@@ -25,26 +25,29 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     super.dispose();
   }
 
-  void _saveTeam() {
+  Future<void> _saveTeam() async {
     if (_formKey.currentState!.validate()) {
-      // AQUI ENTRARIA A LÓGICA DE BACKEND (POST /teams)
+      try {
+        // Usa o Container de Injeção de Dependência criado
+        final container = Provider.of<ServiceContainer>(context, listen: false);
+        
+        // POST para o Gateway (/teams)
+        await container.apiClient.post('/teams', {
+          "name": _nameController.text,
+          "league": _leagueController.text,
+          "logoUrl": "assets/default_shield.png" // Simplificação
+        });
 
-      // Feedback visual
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text("Time '${_nameController.text}' cadastrado com sucesso!"),
-          backgroundColor: Color(0xFFCCDC39),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          action: SnackBarAction(
-              label: 'OK', textColor: Colors.black, onPressed: () {}),
-        ),
-      );
-
-      // Limpar campos ou voltar para a tela anterior
-      Navigator.pop(context);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Time cadastrado com sucesso!"), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao salvar: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -171,7 +174,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     );
   }
 
-  // Widget Auxiliar: Input Neon (Reutilizado do ProfileScreen para consistência)
+  // Widget Auxiliar: Input Neon
   Widget _buildNeonTextField({
     required TextEditingController controller,
     required IconData icon,

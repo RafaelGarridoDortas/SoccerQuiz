@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart'; // Para a funcionalidade de cópia
-import 'package:share_plus/share_plus.dart'; // Para o compartilhamento nativo (precisa ser instalado)
+import 'package:share_plus/share_plus.dart'; // Para o compartilhamento nativo
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
-
-// NOTA: Para usar o Share.share(), você precisará adicionar a dependência 'share_plus' no seu pubspec.yaml
-// dependências:
-//   share_plus: ^latest_version
+import '../services/di.dart'; // <--- Importante
 
 class InviteUsersScreen extends StatefulWidget {
   @override
@@ -27,20 +24,23 @@ class _InviteUsersScreenState extends State<InviteUsersScreen> {
     super.dispose();
   }
 
-  void _sendInviteByEmail() {
+  Future<void> _sendInviteByEmail() async {
     if (_formKey.currentState!.validate()) {
-      // AQUI ENTRA A LÓGICA DE BACKEND (POST /invites/send)
+      try {
+         final container = Provider.of<ServiceContainer>(context, listen: false);
+         await container.apiClient.post('/invite', {
+           "email": _emailController.text
+         });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Convite enviado para '${_emailController.text}'!"),
-          backgroundColor: Color(0xFFCCDC39),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      _emailController.clear();
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text("Convite enviado!"), backgroundColor: Colors.green),
+         );
+         _emailController.clear();
+      } catch (e) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text("Erro: $e"), backgroundColor: Colors.red),
+         );
+      }
     }
   }
 
