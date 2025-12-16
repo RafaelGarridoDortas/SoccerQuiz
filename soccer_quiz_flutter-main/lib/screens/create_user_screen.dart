@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
+import 'package:http/http.dart' as http; // Pacote para conexão com o Backend
+import 'dart:convert'; // Para codificar o JSON
+import 'dart:io'; // Para detectar se é Android ou iOS
+import 'package:flutter/foundation.dart'; // Para detectar se é Web
+import 'package:soccer_quiz_flutter/screens/termos_screen.dart'; // Certifique-se que este arquivo existe
 
 class SignUpScreen extends StatefulWidget {
   @override
@@ -9,6 +13,9 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   
+  // Controle de Estado da Tela
+  bool _isLoading = false; // Para travar o botão durante o envio
+
   // Controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -24,32 +31,96 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _register() {
-    if (_formKey.currentState!.validate()) {
-      // Simulação de cadastro
-      final name = _nameController.text;
-      final email = _emailController.text;
-      
-      print("Cadastrando usuário: $name, $email");
+  // --- LÓGICA DE INTEGRAÇÃO COM O BACKEND ---
+  
+  // Função para definir a URL correta baseada no dispositivo
+  String getBaseUrl() {
+    if (kIsWeb) return 'http://localhost:3000';
+    if (Platform.isAndroid) return 'http://10.0.2.2:3000'; // IP mágico do Emulador
+    return 'http://localhost:3000'; // iOS ou Desktop
+  }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Conta criada com sucesso!"), 
-          backgroundColor: Colors.green
-        ),
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true); // Inicia loading
+
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Rota apontando para o GATEWAY -> AUTH SERVICE
+    // Assumindo que o gateway redireciona /auth para o microsserviço de auth
+    final url = Uri.parse('${getBaseUrl()}/auth/register'); 
+    
+    // Se o seu gateway não tiver o prefixo /auth configurado, use: 
+    // final url = Uri.parse('${getBaseUrl()}/register');
+
+    try {
+      print("Tentando conectar em: $url");
+      
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({
+          "name": name,
+          "email": email,
+          "password": password,
+          // "coins": 100 // O backend deve definir o bônus inicial, não o front
+        }),
       );
 
-      // Após cadastro, navegar para Login ou Home
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-      Navigator.pop(context); // Voltando para a tela anterior por enquanto
+      print("Status Code: ${response.statusCode}");
+      print("Body: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // --- SUCESSO ---
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Conta criada com sucesso! Faça login."), 
+              backgroundColor: Colors.green
+            ),
+          );
+          Navigator.pop(context); // Volta para a tela de Login
+        }
+      } else {
+        // --- ERRO DO SERVIDOR ---
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final errorMessage = data['error'] ?? data['message'] ?? "Erro ao cadastrar";
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Erro: $errorMessage"), backgroundColor: Colors.red),
+          );
+        }
+      }
+
+    } catch (e) {
+      // --- ERRO DE CONEXÃO ---
+      print("Erro de conexão: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Falha ao conectar ao servidor. Verifique o Docker."), 
+            backgroundColor: Colors.orange
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false); // Para loading
     }
   }
+
+  // --- UI (INTERFACE) ---
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      // AppBar transparente simples
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -119,29 +190,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       hint: "Confirmar Senha",
                       isPassword: true,
                       validator: (val) {
-                         if (val != _passwordController.text) return "As senhas não coincidem";
-                         return null;
+                          if (val != _passwordController.text) return "As senhas não coincidem";
+                          return null;
                       }
                     ),
 
                     SizedBox(height: 40),
 
-                    // BOTÃO CADASTRAR
+                    // BOTÃO CADASTRAR (COM LOADING)
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:  Colors.lightGreen, // Verde Neon
+                          backgroundColor:  Colors.lightGreen,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 5,
                           shadowColor: Colors.lightGreen.withOpacity(0.4),
                         ),
-                        onPressed: _register,
-                        child: Text(
-                          "CADASTRAR",
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                        onPressed: _isLoading ? null : _register, // Desativa se estiver carregando
+                        child: _isLoading 
+                          ? SizedBox(
+                              height: 24, 
+                              width: 24, 
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                            )
+                          : Text(
+                              "CADASTRAR",
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
                       ),
                     ),
 
@@ -153,10 +230,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       children: [
                         Text("Já tem uma conta? ", style: TextStyle(color: Colors.grey)),
                         GestureDetector(
-                          onTap: () {
-                             // Navegar para LoginScreen
-                             Navigator.pop(context); // Exemplo: volta se veio do login
-                          },
+                          onTap: () => Navigator.pop(context),
                           child: Text(
                             "Entre aqui",
                             style: TextStyle(
@@ -174,7 +248,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
           ),
 
-          // RODAPÉ SIMPLIFICADO (Geralmente não mostra Coins em cadastro, mas mantive o padrão visual)
+          // RODAPÉ
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Row(
@@ -222,17 +296,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         hintStyle: TextStyle(color: Colors.grey[700]),
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
-        // Borda Padrão (Cyan Neon)
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Colors.cyan, width: 1.5),
           borderRadius: BorderRadius.circular(10),
         ),
-        // Borda ao Clicar (Verde Neon)
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Color(0xFFCCDC39), width: 2),
           borderRadius: BorderRadius.circular(10),
         ),
-        // Borda de Erro
         errorBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Colors.redAccent),
           borderRadius: BorderRadius.circular(10),

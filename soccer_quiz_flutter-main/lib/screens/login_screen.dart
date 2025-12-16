@@ -29,10 +29,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Login"),
-        centerTitle: true,
-      ),
       body: Center(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24),
