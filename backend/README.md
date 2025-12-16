@@ -7,7 +7,7 @@
 
 ### 1. Clone o repositório
 ```bash
-git clone https://github.com/talitaester/SoccerQuiz.git
+git clone https://github.com/RafaelGarridoDortas/SoccerQuiz.git
 cd backend
 
 
