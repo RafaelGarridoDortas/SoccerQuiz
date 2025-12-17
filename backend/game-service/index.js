@@ -80,3 +80,32 @@ app.get('/quizzes/:id/questions', (req, res) => {
 app.listen(3002, () => {
   console.log('✅ Game Service rodando na porta 3002');
 });
+
+// =======================
+// RANKING POR QUIZ
+// =======================
+app.get('/quizzes/:id/ranking', (req, res) => {
+  const quizId = req.params.id;
+
+  db.all(
+    `
+    SELECT 
+      user_id,
+      user_name,
+      score,
+      time_taken
+    FROM results
+    WHERE quiz_id = ?
+    ORDER BY score DESC, time_taken ASC
+    `,
+    [quizId],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+    }
+  );
+});
+
