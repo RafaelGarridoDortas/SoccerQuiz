@@ -21,8 +21,9 @@ Future<ServiceContainer> buildServiceContainer() async {
   final secureStorage = const FlutterSecureStorage();
 
   // Configurado para WEB (localhost funciona nativamente no browser)
-  const baseUrl = 'http://localhost:3000'; 
-
+  //const baseUrl = 'http://localhost:3000'; 
+  const baseUrl = 'http://10.0.2.2:3000';
+  
   final apiClient = ApiClient(
     baseUrl: baseUrl, 
     secureStorage: secureStorage, 
