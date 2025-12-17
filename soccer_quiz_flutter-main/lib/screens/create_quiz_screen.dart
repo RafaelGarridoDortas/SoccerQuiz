@@ -1,8 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
-import '../services/di.dart'; 
+import '../services/di.dart';
 
 class CreateQuizScreen extends StatefulWidget {
   @override
@@ -11,16 +13,19 @@ class CreateQuizScreen extends StatefulWidget {
 
 class _CreateQuizScreenState extends State<CreateQuizScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Controllers para capturar o texto digitado
-  final TextEditingController _questionController = TextEditingController();
-  final List<TextEditingController> _optionControllers = List.generate(4, (_) => TextEditingController());
-  
-  // Índice da resposta correta (0 a 3)
-  int _correctAnswerIndex = 0; 
-  
-  // Estado de carregamento para evitar duplo clique
-  bool _isSending = false;
+
+  // QUIZ
+  final _quizTitle = TextEditingController();
+  final _timeLimit = TextEditingController();
+  final _coins = TextEditingController();
+
+  // QUESTION
+  final _question = TextEditingController();
+  final _options = List.generate(4, (_) => TextEditingController());
+  int _correct = 0;
+
+  int? _quizId;
+  bool _sending = false;
 
   @override
   void initState() {
@@ -32,61 +37,53 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
 
   @override
   void dispose() {
-    _questionController.dispose();
-    for (var controller in _optionControllers) {
-      controller.dispose();
-    }
+    _quizTitle.dispose();
+    _timeLimit.dispose();
+    _coins.dispose();
+    _question.dispose();
+    for (var c in _options) c.dispose();
     super.dispose();
   }
 
-  // --- LÓGICA DE SALVAR NO BACKEND (REQ 04) ---
-  Future<void> _saveQuestion() async {
-    if (_formKey.currentState!.validate()) {
-      
-      setState(() => _isSending = true);
+  Future<void> _addQuestion() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // Monta o JSON conforme o Game Service espera
-      final newQuestion = {
-        "question": _questionController.text,
-        "options": _optionControllers.map((c) => c.text).toList(),
-        "correctIndex": _correctAnswerIndex,
-      };
+    setState(() => _sending = true);
+    final api = Provider.of<ServiceContainer>(context, listen: false).apiClient;
 
-      try {
-        // 1. Pega o container de injeção de dependência
-        final container = Provider.of<ServiceContainer>(context, listen: false);
-        
-        // 2. Envia para a rota POST /questions do Game Service
-        await container.apiClient.post('/questions', newQuestion);
-        
-        // 3. Sucesso
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Pergunta salva no Banco de Dados com sucesso!"), 
-            backgroundColor: Colors.green
-          ),
-        );
-
-        // 4. Limpar campos para adicionar outra
-        _questionController.clear();
-        for (var c in _optionControllers) c.clear();
-        setState(() {
-          _correctAnswerIndex = 0;
+    try {
+      // cria quiz apenas 1x
+      if (_quizId == null) {
+        final res = await api.post('/quizzes', {
+          "title": _quizTitle.text,
+          "type": "GENERAL",
+          "team": null,
+          "timeLimit": int.parse(_timeLimit.text),
+          "coins": int.parse(_coins.text),
         });
-
-      } catch (e) {
-        // 5. Erro
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Erro ao salvar: $e"), 
-            backgroundColor: Colors.red
-          ),
-        );
-      } finally {
-        if (mounted) setState(() => _isSending = false);
+        final data = json.decode(res.body);
+        _quizId = data['id'];
       }
+
+      await api.post('/quizzes/$_quizId/questions', {
+        "question": _question.text,
+        "options": _options.map((e) => e.text).toList(),
+        "correctIndex": _correct,
+      });
+
+      _question.clear();
+      for (var c in _options) c.clear();
+      setState(() => _correct = 0);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Pergunta adicionada")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erro: $e")),
+      );
+    } finally {
+      setState(() => _sending = false);
     }
   }
 
@@ -98,97 +95,73 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: BackButton(color: Colors.white),
-        title: Text("Criar Pergunta", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w300)),
+        title: Text("Criar Pergunta",
+            style: TextStyle(color: Colors.white)),
         centerTitle: true,
       ),
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // LOGO Pequeno
-                    Center(
-                      child: Image.asset(
-                        'assets/Logo.png', 
-                        width: 100,
-                        errorBuilder: (c,e,s) => Icon(Icons.sports_soccer, size: 50, color: Colors.blue),
-                      ),
-                    ),
-                    SizedBox(height: 20),
+                    _label("Título do Quiz"),
+                    _field(_quizTitle, "Ex: Copa do Mundo"),
 
-                    // CAMPO: PERGUNTA
-                    Text("Pergunta:", style: TextStyle(color: Colors.white70, fontSize: 16)),
-                    SizedBox(height: 5),
-                    _buildNeonTextField(
-                      controller: _questionController,
-                      hint: "Ex: Quem ganhou a copa de 2002?",
-                      maxLines: 2,
-                    ),
+                    SizedBox(height: 15),
+                    _label("Tempo limite (segundos)"),
+                    _field(_timeLimit, "30",
+                        keyboard: TextInputType.number),
+
+                    SizedBox(height: 15),
+                    _label("Custo em Coins"),
+                    _field(_coins, "5",
+                        keyboard: TextInputType.number),
 
                     SizedBox(height: 25),
+                    _label("Pergunta"),
+                    _field(_question, "Pergunta", maxLines: 2),
 
-                    // CAMPOS: RESPOSTAS
-                    Text("Respostas (Marque a correta):", style: TextStyle(color: Colors.white70, fontSize: 16)),
-                    SizedBox(height: 10),
-
-                    ...List.generate(4, (index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: Row(
-                          children: [
-                            // Radio Button Customizado
-                            Theme(
-                              data: ThemeData.dark().copyWith(
-                                unselectedWidgetColor: Colors.grey,
-                              ),
-                              child: Radio<int>(
-                                value: index,
-                                groupValue: _correctAnswerIndex,
-                                activeColor: Color(0xFFCCDC39), // Verde Neon
-                                onChanged: (val) {
-                                  setState(() {
-                                    _correctAnswerIndex = val!;
-                                  });
-                                },
-                              ),
+                    SizedBox(height: 15),
+                    _label("Respostas"),
+                    ...List.generate(4, (i) {
+                      return Row(
+                        children: [
+                          Radio<int>(
+                            value: i,
+                            groupValue: _correct,
+                            activeColor: Color(0xFFCCDC39),
+                            onChanged: (v) => setState(() => _correct = v!),
+                          ),
+                          Expanded(
+                            child: _field(
+                              _options[i],
+                              "Opção ${i + 1}",
                             ),
-                            
-                            // Campo de Texto da Opção
-                            Expanded(
-                              child: _buildNeonTextField(
-                                controller: _optionControllers[index],
-                                hint: "Opção ${index + 1}",
-                                validator: (val) => val == null || val.isEmpty ? 'Obrigatório' : null,
-                              ),
-                            ),
-                          ],
-                        ),
+                          )
+                        ],
                       );
                     }),
 
-                    SizedBox(height: 20),
-                    
-                    // BOTÃO SALVAR
+                    SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue[700], 
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          backgroundColor: Colors.blue[700],
                         ),
-                        onPressed: _isSending ? null : _saveQuestion, // Desabilita se estiver enviando
-                        child: _isSending 
-                          ? CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              "ADICIONAR PERGUNTA",
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
+                        onPressed: _sending ? null : _addQuestion,
+                        child: _sending
+                            ? CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                "ADICIONAR PERGUNTA AO QUIZ",
+                                style: TextStyle(color: Colors.white),
+                              ),
                       ),
                     ),
                   ],
@@ -196,106 +169,50 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               ),
             ),
           ),
-
-          // RODAPÉ PADRÃO
-          _buildFooter(context),
+          _footer(context),
         ],
       ),
     );
   }
 
-  // Widget Auxiliar para os Inputs com borda Neon
-  Widget _buildNeonTextField({
-    required TextEditingController controller, 
-    required String hint, 
+  Widget _label(String t) =>
+      Text(t, style: TextStyle(color: Colors.white70));
+
+  Widget _field(
+    TextEditingController c,
+    String h, {
     int maxLines = 1,
-    String? Function(String?)? validator,
+    TextInputType keyboard = TextInputType.text,
   }) {
     return TextFormField(
-      controller: controller,
-      style: TextStyle(color: Colors.white),
+      controller: c,
       maxLines: maxLines,
-      validator: validator ?? (val) => val == null || val.isEmpty ? 'Campo obrigatório' : null,
+      keyboardType: keyboard,
+      validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+      style: TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey[600]),
+        hintText: h,
         filled: true,
-        fillColor: Colors.grey[900], 
+        fillColor: Colors.grey[900],
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.cyan, width: 1.5), // Borda Neon
-          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.cyan),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFCCDC39), width: 2), // Borda Verde ao focar
-          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Color(0xFFCCDC39), width: 2),
         ),
-        errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.redAccent),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.redAccent, width: 2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 15),
       ),
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(height: 10),
-        // Botão Voltar
-        Container(
-          width: 200,
-          height: 45,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFCCDC39),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              "Voltar",
-              style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
+  Widget _footer(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(10),
+      child: Consumer<UserProvider>(
+        builder: (_, u, __) => Text(
+          "Soccer Coins: ${u.coins}",
+          style: TextStyle(color: Colors.white),
         ),
-        
-        SizedBox(height: 15),
-        
-        // Links + Coins
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TermsScreen())),
-                    child: Text("Privacidade", style: TextStyle(color: Color(0xFFCCDC39), fontSize: 12))
-                  ),
-                  SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TermsScreen())),
-                    child: Text("Termos", style: TextStyle(color: Color(0xFFCCDC39), fontSize: 12))
-                  ),
-                ],
-              ),
-              Consumer<UserProvider>(
-                builder: (context, userProvider, child) {
-                  return Text(
-                    "Soccer Coins: ${userProvider.coins}",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  );
-                },
-              ),
-            ],
-          ),
-        )
-      ],
+      ),
     );
   }
 }
