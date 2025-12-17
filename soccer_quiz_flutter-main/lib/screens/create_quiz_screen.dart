@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:soccer_quiz_flutter/screens/termos_screen.dart';
 import '../providers/coin_provider.dart';
 import '../services/di.dart';
 
@@ -26,6 +24,9 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
 
   int? _quizId;
   bool _sending = false;
+
+  // Preview
+  final List<String> _questionsPreview = [];
 
   @override
   void initState() {
@@ -71,12 +72,15 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         "correctIndex": _correct,
       });
 
-      _question.clear();
-      for (var c in _options) c.clear();
-      setState(() => _correct = 0);
+      setState(() {
+        _questionsPreview.add(_question.text);
+        _question.clear();
+        for (var c in _options) c.clear();
+        _correct = 0;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pergunta adicionada")),
+        SnackBar(content: Text("Pergunta adicionada ao quiz")),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,6 +91,24 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     }
   }
 
+  void _finishQuiz() {
+    if (_questionsPreview.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Adicione pelo menos uma pergunta")),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Quiz criado com sucesso!"),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,8 +117,10 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: BackButton(color: Colors.white),
-        title: Text("Criar Pergunta",
-            style: TextStyle(color: Colors.white)),
+        title: Text(
+          "Criar Quiz",
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
       ),
       body: Column(
@@ -123,8 +147,10 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                         keyboard: TextInputType.number),
 
                     SizedBox(height: 25),
+                    Divider(color: Colors.white24),
+
                     _label("Pergunta"),
-                    _field(_question, "Pergunta", maxLines: 2),
+                    _field(_question, "Digite a pergunta", maxLines: 2),
 
                     SizedBox(height: 15),
                     _label("Respostas"),
@@ -135,7 +161,8 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                             value: i,
                             groupValue: _correct,
                             activeColor: Color(0xFFCCDC39),
-                            onChanged: (v) => setState(() => _correct = v!),
+                            onChanged: (v) =>
+                                setState(() => _correct = v!),
                           ),
                           Expanded(
                             child: _field(
@@ -147,7 +174,20 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                       );
                     }),
 
-                    SizedBox(height: 30),
+                    SizedBox(height: 25),
+
+                    if (_questionsPreview.isNotEmpty) ...[
+                      _label("Perguntas adicionadas"),
+                      SizedBox(height: 8),
+                      ..._questionsPreview.asMap().entries.map(
+                        (e) => Text(
+                          "${e.key + 1}. ${e.value}",
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                      SizedBox(height: 25),
+                    ],
+
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -159,9 +199,28 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                         child: _sending
                             ? CircularProgressIndicator(color: Colors.white)
                             : Text(
-                                "ADICIONAR PERGUNTA AO QUIZ",
+                                "ADICIONAR PERGUNTA",
                                 style: TextStyle(color: Colors.white),
                               ),
+                      ),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFFCCDC39),
+                        ),
+                        onPressed: _finishQuiz,
+                        child: Text(
+                          "FINALIZAR QUIZ",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
